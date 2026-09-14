@@ -35,7 +35,7 @@ const emptyBoard = (size: number): BoardState =>
 const hashBoard = (board: BoardState): string => {
   let s = '';
   for (let y = 0; y < board.length; y++) {
-    for (let x = 0; x < board.length; x++) {
+    for (let x = 0; x < board[y].length; x++) {
       const c = board[y][x];
       s += c === 'black' ? 'b' : c === 'white' ? 'w' : '.';
     }
@@ -132,15 +132,18 @@ export class SelfRuleEngine implements IRuleEngine {
     if (!inBounds(s.size, point.x, point.y)) return false;
     if (s.board[point.y][point.x] !== null) return false; // 既に石がある
 
-    const { board: nextBoard, captured } = applyMove(s.board, s.size, color, point);
+    const { board: nextBoard } = applyMove(s.board, s.size, color, point);
 
     // 自殺手判定：取りを反映した後、自分の連に呼吸点が無ければ非合法
     const ownGroup = groupAndLiberties(nextBoard, s.size, point.x, point.y);
     if (ownGroup.liberties === 0) return false;
 
-    // コウ／同形反復（positional superko）：既出局面を再現する着手は禁止
-    // （captured===0 のときは盤が増えるだけなので superko には該当しない＝高速パス）
-    if (captured > 0 && s.history.has(hashBoard(nextBoard))) return false;
+    // コウ／同形反復（positional superko）：既出局面を再現する着手は禁止。
+    // NOTE: 「取りゼロなら石が増えるだけだから同形反復にならない」は成り立たない。
+    // 同形反復のサイクル全体には必ず取りが含まれるが、サイクルを閉じる最後の一手が
+    // 取りである必要はない（スナップバックを挟むと取りゼロの手で過去局面に戻せる）。
+    // 9路の hash は81文字なので、取りの有無で分岐せず常に照合する。
+    if (s.history.has(hashBoard(nextBoard))) return false;
 
     return true;
   }
