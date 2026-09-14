@@ -3,7 +3,8 @@
 // 取り・自殺手・コウ・スコア・moves再構築を確認する。
 import type { Point, StoneColor } from '../types';
 import { createRuleEngine, replayMoves } from './ruleEngine';
-import { SelfRuleEngine, type SelfEngineState } from './selfRuleEngine';
+import type { EngineState } from './types';
+import { SelfRuleEngine } from './selfRuleEngine';
 
 let passed = 0;
 let failed = 0;
@@ -19,7 +20,8 @@ function check(name: string, cond: boolean) {
 
 const engine = createRuleEngine();
 const P = (x: number, y: number): Point => ({ x, y });
-const boardOf = (s: unknown) => (s as SelfEngineState).board;
+// 内部状態を覗かず、インターフェース経由で盤を取り出す
+const boardOf = (s: EngineState) => engine.toBoardState(s);
 
 // --- 取り（キャプチャ） -------------------------------------------------
 // 白(1,0)を黒で囲って取る:  黒(0,0),(2,0),(1,1) で 上辺の白(1,0)は呼吸点ゼロ
@@ -32,8 +34,10 @@ console.log('取り:');
   const before = s;
   s = engine.playMove(s, 'black', P(1, 1)); // 白(1,0)を取る
   check('白石が盤上から消える', boardOf(s)[0][1] === null);
-  check('取り石数=1', engine.capturesBetween(before, s) === 1);
-  check('黒のアゲハマ=1', (s as SelfEngineState).captures.black === 1);
+  check('取り石数=1', engine.captures(s).black - engine.captures(before).black === 1);
+  check('黒のアゲハマ=1', engine.captures(s).black === 1);
+  check('白のアゲハマは0のまま', engine.captures(s).white === 0);
+  check('手番が白に移る', engine.toPlay(s) === 'white');
 }
 
 // --- 自殺手（着手禁止点） ------------------------------------------------
@@ -144,6 +148,7 @@ console.log('終局・スコア:');
   // komi=0 なら引き分け相当（diff=0→黒勝ち扱い）。komi=6.5 → 白+6.5
   const r0 = engine.score(s, 0);
   check('komi0: 黒地10 白地10 で差0', r0.margin === 0);
+  check('komi0: 目数が並べば持碁（0目勝ちにしない）', r0.winner === 'draw');
   const r = engine.score(s, 6.5);
   check('komi6.5: 白が6.5勝ち', r.winner === 'white' && r.margin === 6.5);
 
@@ -179,7 +184,7 @@ console.log('moves再構築:');
   ];
   const rebuilt = replayMoves(engine, 9, moves);
   check('再構築後も白(1,0)は取られている', boardOf(rebuilt)[0][1] === null);
-  check('再構築後 黒アゲハマ=1', (rebuilt as SelfEngineState).captures.black === 1);
+  check('再構築後 黒アゲハマ=1', engine.captures(rebuilt).black === 1);
 }
 
 // 別 instance であることの確認（factory が SelfRuleEngine を返す）

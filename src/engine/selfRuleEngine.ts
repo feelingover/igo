@@ -4,11 +4,13 @@
 // 純粋な盤ロジックのみで RN/DOM 依存ゼロ。Node でそのまま動作検証できる。
 import type {
   BoardState,
+  Captures,
   Point,
   PointOwner,
   ScoreBreakdown,
   ScoreResult,
   StoneColor,
+  Winner,
 } from '../types';
 import { opponent } from '../types';
 import type { EngineState, IRuleEngine } from './types';
@@ -18,7 +20,7 @@ export interface SelfEngineState {
   size: number;
   board: BoardState; // board[y][x]
   toPlay: StoneColor;
-  captures: { black: number; white: number }; // アゲハマ（その色が取った石数）
+  captures: Captures; // アゲハマ（その色が取った石数）
   passes: number; // 連続パス数
   history: ReadonlySet<string>; // 既出局面のハッシュ（superko 判定用）
 }
@@ -177,17 +179,12 @@ export class SelfRuleEngine implements IRuleEngine {
     };
   }
 
-  capturesBetween(prev: EngineState, next: EngineState): number {
-    const p = prev as SelfEngineState;
-    const n = next as SelfEngineState;
-    // prev→next の差分で「消えた石」の数 = 取られた石数
-    let removed = 0;
-    for (let y = 0; y < p.size; y++) {
-      for (let x = 0; x < p.size; x++) {
-        if (p.board[y][x] !== null && n.board[y][x] === null) removed++;
-      }
-    }
-    return removed;
+  toPlay(state: EngineState): StoneColor {
+    return (state as SelfEngineState).toPlay;
+  }
+
+  captures(state: EngineState): Captures {
+    return { ...(state as SelfEngineState).captures };
   }
 
   isGameOver(state: EngineState): boolean {
@@ -258,14 +255,10 @@ export class SelfRuleEngine implements IRuleEngine {
       komi,
       total: stones.white + territory.white + komi,
     };
+    // コミが可変なので目数が並ぶ（持碁）ことがある。0目勝ちに潰さず draw を返す。
     const diff = black.total - white.total;
-    return {
-      winner: diff >= 0 ? 'black' : 'white',
-      margin: Math.abs(diff),
-      black,
-      white,
-      ownership,
-    };
+    const winner: Winner = diff > 0 ? 'black' : diff < 0 ? 'white' : 'draw';
+    return { winner, margin: Math.abs(diff), black, white, ownership };
   }
 
   toBoardState(state: EngineState): BoardState {
