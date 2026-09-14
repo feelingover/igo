@@ -1,5 +1,6 @@
-// 石（円）。SPEC 9章: 黒 #000、白 #fff（白は薄い境界線）。
+// 石（円）。SPEC 9章: 黒 #000、白 #fff（白は薄い境界線）。色は theme を参照。
 import { Circle } from 'react-native-svg';
+import { colors, stoneFill } from '../theme';
 import type { StoneColor } from '../types';
 
 type Props = {
@@ -17,9 +18,9 @@ export function Stone({ cx, cy, r, color, opacity = 1 }: Props) {
       cx={cx}
       cy={cy}
       r={r}
-      fill={isBlack ? '#000' : '#fff'}
+      fill={stoneFill(color)}
       // 白石は盤上で視認できるよう薄い境界線。黒石にもごく薄い縁取りで立体感。
-      stroke={isBlack ? '#000' : '#888'}
+      stroke={isBlack ? colors.stoneBlack : colors.stoneWhiteEdge}
       strokeWidth={isBlack ? 0 : 1}
       opacity={opacity}
     />

@@ -2,13 +2,12 @@
 import { View, type GestureResponderEvent } from 'react-native';
 import Svg, { Circle, Rect } from 'react-native-svg';
 import { useGameStore } from '../state/gameStore';
+import { colors } from '../theme';
 import type { Move, Point } from '../types';
 import { BoardGrid } from './BoardGrid';
 import { Stone } from './Stone';
 import { TerritoryMarkers } from './TerritoryMarkers';
 import { coord, createGeometry, nearestIntersection } from './boardGeometry';
-
-const BOARD_BG = '#e3b96b'; // 榧(かや)っぽい盤の色
 
 const lastPlayPoint = (moves: Move[]): Point | null => {
   for (let i = moves.length - 1; i >= 0; i--) {
@@ -52,7 +51,7 @@ export function GobanBoard({ boardPx }: { boardPx: number }) {
       onResponderRelease={handleRelease}
     >
       <Svg width={boardPx} height={boardPx}>
-        <Rect x={0} y={0} width={boardPx} height={boardPx} fill={BOARD_BG} rx={6} />
+        <Rect x={0} y={0} width={boardPx} height={boardPx} fill={colors.board} rx={6} />
         <BoardGrid geometry={g} />
         {stones}
 
@@ -68,7 +67,7 @@ export function GobanBoard({ boardPx }: { boardPx: number }) {
             cy={coord(g, last.y)}
             r={g.stoneR * 0.35}
             fill="none"
-            stroke={board[last.y][last.x] === 'black' ? '#fff' : '#000'}
+            stroke={board[last.y][last.x] === 'black' ? colors.stoneWhite : colors.stoneBlack}
             strokeWidth={1.5}
           />
         )}

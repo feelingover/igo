@@ -2,15 +2,9 @@
 // 空点のうち片方の色だけに囲まれた点（＝その色の地）に、小さな四角を描く。
 // 石の上には描かない（盤面がそのまま読めるように）。ダメ（帰属なし）は無印。
 import { G, Rect } from 'react-native-svg';
+import { colors, stoneFill } from '../theme';
 import type { BoardState, PointOwner } from '../types';
 import { coord, type BoardGeometry } from './boardGeometry';
-
-const MARKER_FILL: Record<'black' | 'white', string> = {
-  black: '#111',
-  white: '#fff',
-};
-// 盤色（#e3b96b）の上で白マーカーの輪郭が消えないよう、両色とも濃い縁取り
-const MARKER_STROKE = '#3a2f1c';
 
 export function TerritoryMarkers({
   geometry: g,
@@ -36,8 +30,9 @@ export function TerritoryMarkers({
           width={side}
           height={side}
           rx={1}
-          fill={MARKER_FILL[owner]}
-          stroke={MARKER_STROKE}
+          fill={stoneFill(owner)}
+          // 盤色の上で白マーカーの輪郭が消えないよう、両色とも濃い縁取り
+          stroke={colors.stoneOutline}
           strokeWidth={1}
         />,
       );

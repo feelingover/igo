@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-n
 import { ControlBar } from '../components/ControlBar';
 import { GobanBoard } from '../components/GobanBoard';
 import { useGameStore } from '../state/gameStore';
+import { colors } from '../theme';
 
 const BOARD_SIZE = 9; // Phase1 は 9 路固定（設計はサイズ可変）
 
@@ -41,6 +42,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 8,
   },
-  title: { fontSize: 16, fontWeight: '700', color: '#3a2f1c' },
+  title: { fontSize: 16, fontWeight: '700', color: colors.heading },
   boardWrap: { alignItems: 'center', justifyContent: 'center' },
 });
