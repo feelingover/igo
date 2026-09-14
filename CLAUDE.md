@@ -62,9 +62,15 @@ inspect or destructure it outside the engine; pass it back into engine methods.
   Chapter-6 "engine spike". `createRuleEngine()` (ruleEngine.ts) is the **only**
   place that names the concrete class — swap engines by editing only that factory.
 - Rules implemented: suicide rejection; capture (flood-fill liberties); ko as
-  **positional superko** (forbid recreating any prior board hash, checked only
-  when a capture occurred); double-pass game end; Chinese **area scoring**
+  **positional superko** (forbid recreating any prior board hash — checked on
+  *every* move, not only capturing ones: a snapback lets a non-capturing move
+  close a repetition cycle); double-pass game end; Chinese **area scoring**
   (stones + single-color-surrounded territory).
+- `toPlay()` and `captures()` make the engine the single authority for turn
+  order and アゲハマ. Upper layers must read them rather than tracking their own
+  copies — that duplication is what `capturesBetween()` used to cause.
+- `score()` returns `winner: StoneColor | 'draw'`; komi is a parameter, so 持碁
+  (jigo) is reachable and must not be collapsed into a 0-point win.
 - `pass()` exists on the interface even though SPEC omitted it: because
   `EngineState` is opaque, passes must flow through the engine for `isGameOver`
   (double-pass) to be computable. See the note in types.ts.
@@ -76,9 +82,15 @@ a Phase 2 `remoteGameService` can drop in with no signature changes.
 - Concrete impl: `LocalGameService` (in-memory `Map<gameId, GameRecord>`),
   exported as the `localGameService` singleton.
 - `submitMove` is the **authority**: it enforces turn order and legality, applies
-  the move through the engine, tallies アゲハマ (captures), and on double-pass
-  computes the score (`DEFAULT_KOMI = 6.5`) and sets `result`.
-- Result strings: `"B+5.5"` / `"W+R"` (resign). UI formats these to Japanese.
+  the move through the engine, and on double-pass computes the score
+  (`DEFAULT_KOMI = 6.5`) and sets `result`.
+- `GameRecord` stores only what the engine can't derive (ids, komi, `moves[]`,
+  terminal `result`/`score`). `project()` builds every derived `GameState` field
+  — board, `nextToPlay`, `captures` — from `engineState` on each call, so there
+  is no per-case bookkeeping to keep in sync and no hand-written deep clone.
+- `result` is a structured `GameResult` (`{kind:'score'|'resign', winner, …}`),
+  **not** a string. Format it at the boundary (`components/resultFormat.ts`);
+  never build a `"B+5.5"` string only to parse it back.
 
 ### State / UI
 - `state/gameStore.ts` (zustand) holds `GameState` plus UI-only derived state

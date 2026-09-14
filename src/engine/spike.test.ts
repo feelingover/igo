@@ -3,7 +3,8 @@
 // 取り・自殺手・コウ・スコア・moves再構築を確認する。
 import type { Point, StoneColor } from '../types';
 import { createRuleEngine, replayMoves } from './ruleEngine';
-import { SelfRuleEngine, type SelfEngineState } from './selfRuleEngine';
+import type { EngineState } from './types';
+import { SelfRuleEngine } from './selfRuleEngine';
 
 let passed = 0;
 let failed = 0;
@@ -19,7 +20,8 @@ function check(name: string, cond: boolean) {
 
 const engine = createRuleEngine();
 const P = (x: number, y: number): Point => ({ x, y });
-const boardOf = (s: unknown) => (s as SelfEngineState).board;
+// 内部状態を覗かず、インターフェース経由で盤を取り出す
+const boardOf = (s: EngineState) => engine.toBoardState(s);
 
 // --- 取り（キャプチャ） -------------------------------------------------
 // 白(1,0)を黒で囲って取る:  黒(0,0),(2,0),(1,1) で 上辺の白(1,0)は呼吸点ゼロ
@@ -32,8 +34,10 @@ console.log('取り:');
   const before = s;
   s = engine.playMove(s, 'black', P(1, 1)); // 白(1,0)を取る
   check('白石が盤上から消える', boardOf(s)[0][1] === null);
-  check('取り石数=1', engine.capturesBetween(before, s) === 1);
-  check('黒のアゲハマ=1', (s as SelfEngineState).captures.black === 1);
+  check('取り石数=1', engine.captures(s).black - engine.captures(before).black === 1);
+  check('黒のアゲハマ=1', engine.captures(s).black === 1);
+  check('白のアゲハマは0のまま', engine.captures(s).white === 0);
+  check('手番が白に移る', engine.toPlay(s) === 'white');
 }
 
 // --- 自殺手（着手禁止点） ------------------------------------------------
@@ -88,6 +92,46 @@ console.log('コウ:');
   check('別局面を経由すれば白の取り返しは合法', engine.isLegalMove(s2, 'white', P(2, 1)) === true);
 }
 
+// --- 同形反復：取りを伴わない着手でも過去局面は再現できない ---------------
+console.log('同形反復（取りゼロの手）:');
+{
+  // 「取りゼロなら同形反復にならない」は誤り、を示す局面。
+  // スナップバックを挟むと、盤から石が1個だけ減った状態に戻せるので、
+  // 次に「取りを伴わない一手」で過去局面をそのまま再現できてしまう。
+  //
+  //   H:      x: 0 1 2 3        ← W(0,1),(0,2) は (0,0) が唯一の呼吸点
+  //      y0:     . W . .
+  //      y1:     W B . .
+  //      y2:     W B . .
+  //      y3:     B . . .
+  let s = engine.emptyState(9);
+  for (const p of [P(1, 1), P(1, 2), P(0, 3)]) s = engine.playMove(s, 'black', p);
+  for (const p of [P(1, 0), P(0, 1), P(0, 2)]) s = engine.playMove(s, 'white', p);
+  const historic = boardOf(s); // ＝ H。history に入っている
+
+  // 黒(0,0) で白2子を取る → 黒(0,0) は自身がアタリ（スナップバック）
+  s = engine.playMove(s, 'black', P(0, 0));
+  check('黒が白2子を取る', boardOf(s)[1][0] === null && boardOf(s)[2][0] === null);
+  // 白(0,1) で取り返す → 盤は「H から白(0,2) を1個抜いた形」に戻る
+  s = engine.playMove(s, 'white', P(0, 1));
+  check('白が取り返して盤が H−1子 に戻る', boardOf(s)[0][0] === null);
+
+  // ここで白(0,2) は何も取らない（周囲の黒は呼吸点を持つ）。
+  // だが結果の盤は H そのもの＝同形反復なので非合法でなければならない。
+  check(
+    '取りを伴わない手でも過去局面の再現は非合法',
+    engine.isLegalMove(s, 'white', P(0, 2)) === false,
+  );
+  // 念のため：再現先が本当に H と一致することを確認する
+  const wouldBe = boardOf(engine.playMove(s, 'white', P(0, 2)));
+  check(
+    '再現される盤は H と同一',
+    JSON.stringify(wouldBe) === JSON.stringify(historic),
+  );
+  // 同形反復にならない別の空点は当然合法（過剰に禁止していないこと）
+  check('無関係な空点は合法のまま', engine.isLegalMove(s, 'white', P(5, 5)) === true);
+}
+
 // --- 両パス終局 + スコア -------------------------------------------------
 console.log('終局・スコア:');
 {
@@ -104,6 +148,7 @@ console.log('終局・スコア:');
   // komi=0 なら引き分け相当（diff=0→黒勝ち扱い）。komi=6.5 → 白+6.5
   const r0 = engine.score(s, 0);
   check('komi0: 黒地10 白地10 で差0', r0.margin === 0);
+  check('komi0: 目数が並べば持碁（0目勝ちにしない）', r0.winner === 'draw');
   const r = engine.score(s, 6.5);
   check('komi6.5: 白が6.5勝ち', r.winner === 'white' && r.margin === 6.5);
 
@@ -139,7 +184,7 @@ console.log('moves再構築:');
   ];
   const rebuilt = replayMoves(engine, 9, moves);
   check('再構築後も白(1,0)は取られている', boardOf(rebuilt)[0][1] === null);
-  check('再構築後 黒アゲハマ=1', (rebuilt as SelfEngineState).captures.black === 1);
+  check('再構築後 黒アゲハマ=1', engine.captures(rebuilt).black === 1);
 }
 
 // 別 instance であることの確認（factory が SelfRuleEngine を返す）

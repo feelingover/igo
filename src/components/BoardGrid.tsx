@@ -1,5 +1,6 @@
 // 線・星・座標ラベル（SPEC 9章）
 import { Circle, G, Line, Text as SvgText } from 'react-native-svg';
+import { colors } from '../theme';
 import {
   columnLabel,
   coord,
@@ -8,8 +9,8 @@ import {
   type BoardGeometry,
 } from './boardGeometry';
 
-const LINE_COLOR = '#000';
-const LABEL_COLOR = '#5a4632';
+const LINE_COLOR = colors.boardLine;
+const LABEL_COLOR = colors.boardLabel;
 
 export function BoardGrid({ geometry: g }: { geometry: BoardGeometry }) {
   const min = coord(g, 0);

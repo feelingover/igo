@@ -1,6 +1,8 @@
 // パス/投了ボタン・手番表示・アゲハマ表示（SPEC 9章）
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useGameStore } from '../state/gameStore';
+import { colors } from '../theme';
+import { ColorDot } from './ColorDot';
 import { ScorePanel } from './ScorePanel';
 import { colorJa, formatResult } from './resultFormat';
 
@@ -65,12 +67,7 @@ export function ControlBar() {
           </Text>
         ) : (
           <View style={styles.turnWrap}>
-            <View
-              style={[
-                styles.turnDot,
-                { backgroundColor: game.nextToPlay === 'black' ? '#000' : '#fff' },
-              ]}
-            />
+            <ColorDot color={game.nextToPlay} size={18} />
             <Text style={styles.turnText}>{colorJa(game.nextToPlay)}番</Text>
           </View>
         )}
@@ -123,32 +120,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   turnWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  turnDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: '#888',
-  },
-  turnText: { fontSize: 18, fontWeight: '600', color: '#222' },
-  result: { fontSize: 18, fontWeight: '700', color: '#222' },
-  captures: { fontSize: 14, color: '#555' },
-  error: { color: '#c0392b', fontSize: 14 },
-  hint: { color: '#7a6a52', fontSize: 13 },
+  turnText: { fontSize: 18, fontWeight: '600', color: colors.text },
+  result: { fontSize: 18, fontWeight: '700', color: colors.text },
+  captures: { fontSize: 14, color: colors.textMuted },
+  error: { color: colors.error, fontSize: 14 },
+  hint: { color: colors.textSubtle, fontSize: 13 },
   buttonRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   button: {
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#ece3d2',
+    backgroundColor: colors.buttonBg,
     borderWidth: 1,
-    borderColor: '#c9bda3',
+    borderColor: colors.buttonBorder,
   },
-  buttonPrimary: { backgroundColor: '#3a7d44', borderColor: '#2f6638' },
-  buttonDanger: { backgroundColor: '#b23b3b', borderColor: '#8f2f2f' },
-  buttonDisabled: { backgroundColor: '#eee', borderColor: '#ddd' },
+  buttonPrimary: { backgroundColor: colors.primaryBg, borderColor: colors.primaryBorder },
+  buttonDanger: { backgroundColor: colors.dangerBg, borderColor: colors.dangerBorder },
+  buttonDisabled: { backgroundColor: colors.disabledBg, borderColor: colors.disabledBorder },
   buttonPressed: { opacity: 0.7 },
-  buttonText: { fontSize: 15, fontWeight: '600', color: '#3a2f1c' },
-  buttonTextLight: { color: '#fff' },
-  buttonTextDisabled: { color: '#aaa' },
+  buttonText: { fontSize: 15, fontWeight: '600', color: colors.buttonText },
+  buttonTextLight: { color: colors.buttonTextOnFill },
+  buttonTextDisabled: { color: colors.disabledText },
 });

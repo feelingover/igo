@@ -4,11 +4,13 @@
 // 純粋な盤ロジックのみで RN/DOM 依存ゼロ。Node でそのまま動作検証できる。
 import type {
   BoardState,
+  Captures,
   Point,
   PointOwner,
   ScoreBreakdown,
   ScoreResult,
   StoneColor,
+  Winner,
 } from '../types';
 import { opponent } from '../types';
 import type { EngineState, IRuleEngine } from './types';
@@ -18,13 +20,28 @@ export interface SelfEngineState {
   size: number;
   board: BoardState; // board[y][x]
   toPlay: StoneColor;
-  captures: { black: number; white: number }; // アゲハマ（その色が取った石数）
+  captures: Captures; // アゲハマ（その色が取った石数）
   passes: number; // 連続パス数
   history: ReadonlySet<string>; // 既出局面のハッシュ（superko 判定用）
 }
 
-const inBounds = (size: number, x: number, y: number): boolean =>
-  x >= 0 && y >= 0 && x < size && y < size;
+const inBounds = (size: number, p: Point): boolean =>
+  p.x >= 0 && p.y >= 0 && p.x < size && p.y < size;
+
+// 上下左右のオフセット。盤ロジックの「隣接」はすべてこれを経由する。
+const NEIGHBOR_OFFSETS = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+] as const;
+
+// 隣接4点。盤外も含むので、呼び出し側で inBounds を通すこと。
+const neighborsOf = (p: Point): Point[] =>
+  NEIGHBOR_OFFSETS.map(([dx, dy]) => ({ x: p.x + dx, y: p.y + dy }));
+
+// Set/Map のキーとして交点を識別するための文字列化
+const pointKey = (p: Point): string => `${p.x},${p.y}`;
 
 const cloneBoard = (board: BoardState): BoardState =>
   board.map((row) => row.slice());
@@ -35,7 +52,7 @@ const emptyBoard = (size: number): BoardState =>
 const hashBoard = (board: BoardState): string => {
   let s = '';
   for (let y = 0; y < board.length; y++) {
-    for (let x = 0; x < board.length; x++) {
+    for (let x = 0; x < board[y].length; x++) {
       const c = board[y][x];
       s += c === 'black' ? 'b' : c === 'white' ? 'w' : '.';
     }
@@ -43,35 +60,27 @@ const hashBoard = (board: BoardState): string => {
   return s;
 };
 
-// (x,y) を含む連（同色の連結群）と、その連の呼吸点(liberty)数を返す。
+// start を含む連（同色の連結群）と、その連の呼吸点(liberty)数を返す。
 const groupAndLiberties = (
   board: BoardState,
   size: number,
-  sx: number,
-  sy: number,
+  start: Point,
 ): { stones: Point[]; liberties: number } => {
-  const color = board[sy][sx];
+  const color = board[start.y][start.x];
   const stones: Point[] = [];
   const liberties = new Set<string>();
-  const seen = new Set<string>();
-  const stack: Point[] = [{ x: sx, y: sy }];
-  seen.add(`${sx},${sy}`);
+  const seen = new Set<string>([pointKey(start)]);
+  const stack: Point[] = [start];
   while (stack.length > 0) {
     const p = stack.pop()!;
     stones.push(p);
-    const neighbors = [
-      { x: p.x + 1, y: p.y },
-      { x: p.x - 1, y: p.y },
-      { x: p.x, y: p.y + 1 },
-      { x: p.x, y: p.y - 1 },
-    ];
-    for (const n of neighbors) {
-      if (!inBounds(size, n.x, n.y)) continue;
+    for (const n of neighborsOf(p)) {
+      if (!inBounds(size, n)) continue;
       const cell = board[n.y][n.x];
       if (cell === null) {
-        liberties.add(`${n.x},${n.y}`);
-      } else if (cell === color && !seen.has(`${n.x},${n.y}`)) {
-        seen.add(`${n.x},${n.y}`);
+        liberties.add(pointKey(n));
+      } else if (cell === color && !seen.has(pointKey(n))) {
+        seen.add(pointKey(n));
         stack.push(n);
       }
     }
@@ -93,16 +102,10 @@ const applyMove = (
   let captured = 0;
 
   // 隣接する相手の連で呼吸点ゼロのものを取り除く
-  const neighbors = [
-    { x: point.x + 1, y: point.y },
-    { x: point.x - 1, y: point.y },
-    { x: point.x, y: point.y + 1 },
-    { x: point.x, y: point.y - 1 },
-  ];
-  for (const n of neighbors) {
-    if (!inBounds(size, n.x, n.y)) continue;
+  for (const n of neighborsOf(point)) {
+    if (!inBounds(size, n)) continue;
     if (next[n.y][n.x] !== enemy) continue;
-    const grp = groupAndLiberties(next, size, n.x, n.y);
+    const grp = groupAndLiberties(next, size, n);
     if (grp.liberties === 0) {
       for (const s of grp.stones) {
         next[s.y][s.x] = null;
@@ -129,18 +132,21 @@ export class SelfRuleEngine implements IRuleEngine {
 
   isLegalMove(state: EngineState, color: StoneColor, point: Point): boolean {
     const s = state as SelfEngineState;
-    if (!inBounds(s.size, point.x, point.y)) return false;
+    if (!inBounds(s.size, point)) return false;
     if (s.board[point.y][point.x] !== null) return false; // 既に石がある
 
-    const { board: nextBoard, captured } = applyMove(s.board, s.size, color, point);
+    const { board: nextBoard } = applyMove(s.board, s.size, color, point);
 
     // 自殺手判定：取りを反映した後、自分の連に呼吸点が無ければ非合法
-    const ownGroup = groupAndLiberties(nextBoard, s.size, point.x, point.y);
+    const ownGroup = groupAndLiberties(nextBoard, s.size, point);
     if (ownGroup.liberties === 0) return false;
 
-    // コウ／同形反復（positional superko）：既出局面を再現する着手は禁止
-    // （captured===0 のときは盤が増えるだけなので superko には該当しない＝高速パス）
-    if (captured > 0 && s.history.has(hashBoard(nextBoard))) return false;
+    // コウ／同形反復（positional superko）：既出局面を再現する着手は禁止。
+    // NOTE: 「取りゼロなら石が増えるだけだから同形反復にならない」は成り立たない。
+    // 同形反復のサイクル全体には必ず取りが含まれるが、サイクルを閉じる最後の一手が
+    // 取りである必要はない（スナップバックを挟むと取りゼロの手で過去局面に戻せる）。
+    // 9路の hash は81文字なので、取りの有無で分岐せず常に照合する。
+    if (s.history.has(hashBoard(nextBoard))) return false;
 
     return true;
   }
@@ -173,17 +179,12 @@ export class SelfRuleEngine implements IRuleEngine {
     };
   }
 
-  capturesBetween(prev: EngineState, next: EngineState): number {
-    const p = prev as SelfEngineState;
-    const n = next as SelfEngineState;
-    // prev→next の差分で「消えた石」の数 = 取られた石数
-    let removed = 0;
-    for (let y = 0; y < p.size; y++) {
-      for (let x = 0; x < p.size; x++) {
-        if (p.board[y][x] !== null && n.board[y][x] === null) removed++;
-      }
-    }
-    return removed;
+  toPlay(state: EngineState): StoneColor {
+    return (state as SelfEngineState).toPlay;
+  }
+
+  captures(state: EngineState): Captures {
+    return { ...(state as SelfEngineState).captures };
   }
 
   isGameOver(state: EngineState): boolean {
@@ -212,28 +213,21 @@ export class SelfRuleEngine implements IRuleEngine {
           continue;
         }
         // 空点：連結した空領域をまとめて評価
-        const key = `${x},${y}`;
-        if (seen.has(key)) continue;
+        const start: Point = { x, y };
+        if (seen.has(pointKey(start))) continue;
         const region: Point[] = [];
         const borderColors = new Set<StoneColor>();
-        const stack: Point[] = [{ x, y }];
-        seen.add(key);
+        const stack: Point[] = [start];
+        seen.add(pointKey(start));
         while (stack.length > 0) {
           const pt = stack.pop()!;
           region.push(pt);
-          const neighbors = [
-            { x: pt.x + 1, y: pt.y },
-            { x: pt.x - 1, y: pt.y },
-            { x: pt.x, y: pt.y + 1 },
-            { x: pt.x, y: pt.y - 1 },
-          ];
-          for (const n of neighbors) {
-            if (!inBounds(size, n.x, n.y)) continue;
+          for (const n of neighborsOf(pt)) {
+            if (!inBounds(size, n)) continue;
             const nc = s.board[n.y][n.x];
             if (nc === null) {
-              const nk = `${n.x},${n.y}`;
-              if (!seen.has(nk)) {
-                seen.add(nk);
+              if (!seen.has(pointKey(n))) {
+                seen.add(pointKey(n));
                 stack.push(n);
               }
             } else {
@@ -261,14 +255,10 @@ export class SelfRuleEngine implements IRuleEngine {
       komi,
       total: stones.white + territory.white + komi,
     };
+    // コミが可変なので目数が並ぶ（持碁）ことがある。0目勝ちに潰さず draw を返す。
     const diff = black.total - white.total;
-    return {
-      winner: diff >= 0 ? 'black' : 'white',
-      margin: Math.abs(diff),
-      black,
-      white,
-      ownership,
-    };
+    const winner: Winner = diff > 0 ? 'black' : diff < 0 ? 'white' : 'draw';
+    return { winner, margin: Math.abs(diff), black, white, ownership };
   }
 
   toBoardState(state: EngineState): BoardState {

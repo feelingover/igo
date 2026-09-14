@@ -1,6 +1,6 @@
 // 結果・目数の日本語表記（SPEC 9章）
 // ControlBar / ScorePanel が共通で使う表示フォーマット。
-import type { StoneColor } from '../types';
+import type { GameResult, StoneColor } from '../types';
 
 export const colorJa = (c: StoneColor): string => (c === 'black' ? '黒' : '白');
 
@@ -8,11 +8,10 @@ export const colorJa = (c: StoneColor): string => (c === 'black' ? '黒' : '白'
 export const formatPoints = (n: number): string =>
   Number.isInteger(n) ? String(n) : n.toFixed(1);
 
-// "B+5.5" → "黒 5.5目勝ち" / "W+R" → "白 中押し勝ち"
-export function formatResult(result?: string): string {
+// GameResult → 日本語表記。構造をそのまま読むので解析も分岐漏れも無い。
+export function formatResult(result?: GameResult): string {
   if (!result) return '';
-  const [side, margin] = result.split('+');
-  const who = side === 'B' ? '黒' : '白';
-  if (margin === 'R') return `${who} 中押し勝ち`;
-  return `${who} ${margin}目勝ち`;
+  if (result.kind === 'resign') return `${colorJa(result.winner)} 中押し勝ち`;
+  if (result.winner === 'draw') return '持碁（引き分け）';
+  return `${colorJa(result.winner)} ${formatPoints(result.margin)}目勝ち`;
 }
