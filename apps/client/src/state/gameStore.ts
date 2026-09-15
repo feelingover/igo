@@ -1,10 +1,15 @@
 // zustand store（SPEC 8章）
 // 保持するのは GameState と派生 UI 状態（プレビュー着手など）。
 import { create } from 'zustand';
-import { createRuleEngine, replayMoves } from '../engine/ruleEngine';
-import { localGameService } from '../services/localGameService';
-import type { IGameService } from '../services/gameService';
-import type { GameState, Move, Point } from '../types';
+import {
+  createRuleEngine,
+  localGameService,
+  replayMoves,
+  type GameState,
+  type IGameService,
+  type Move,
+  type Point,
+} from '@igo/core';
 
 // 合法手の事前チェック専用エンジン（盤面は moves[] から都度再構築する）。
 // 着手の権威はサービス側（submitMove）にあり、ここはプレビュー判定だけ。

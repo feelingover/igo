@@ -1,7 +1,7 @@
 // 石（円）。SPEC 9章: 黒 #000、白 #fff（白は薄い境界線）。色は theme を参照。
 import { Circle } from 'react-native-svg';
 import { colors, stoneFill } from '../theme';
-import type { StoneColor } from '../types';
+import type { StoneColor } from '@igo/core';
 
 type Props = {
   cx: number;

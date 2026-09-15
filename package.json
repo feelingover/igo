@@ -1,28 +1,26 @@
 {
-  "name": "igo-client",
+  "name": "igo",
   "version": "1.0.0",
-  "main": "index.ts",
-  "dependencies": {
-    "expo": "~56.0.9",
-    "expo-status-bar": "~56.0.4",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "0.85.3",
-    "react-native-svg": "15.15.4",
-    "react-native-web": "^0.21.2",
-    "zustand": "^5.0.14"
-  },
-  "devDependencies": {
-    "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": "^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0"
   },
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web",
-    "typecheck": "tsc --noEmit",
-    "test:engine": "tsc src/engine/spike.test.ts --ignoreConfig --ignoreDeprecations 6.0 --outDir .spike-build --module commonjs --target ES2020 --moduleResolution node --esModuleInterop --skipLibCheck && node .spike-build/engine/spike.test.js"
+    "start": "npm run start --workspace igo-client --",
+    "android": "npm run android --workspace igo-client --",
+    "ios": "npm run ios --workspace igo-client --",
+    "web": "npm run web --workspace igo-client --",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:engine": "tsx packages/core/src/engine/spike.test.ts",
+    "server:smoke": "npm run smoke --workspace @igo/server --"
   },
-  "private": true
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.13",
+    "typescript": "~6.0.3"
+  }
 }

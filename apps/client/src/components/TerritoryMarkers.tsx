@@ -3,7 +3,7 @@
 // 石の上には描かない（盤面がそのまま読めるように）。ダメ（帰属なし）は無印。
 import { G, Rect } from 'react-native-svg';
 import { colors, stoneFill } from '../theme';
-import type { BoardState, PointOwner } from '../types';
+import type { BoardState, PointOwner } from '@igo/core';
 import { coord, type BoardGeometry } from './boardGeometry';
 
 export function TerritoryMarkers({

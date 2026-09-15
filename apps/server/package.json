@@ -1,0 +1,13 @@
+{
+  "name": "@igo/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "対戦成績サーバ。現時点では @igo/core の疎通確認のみ（HTTP・永続化は未実装）。",
+  "scripts": {
+    "smoke": "tsx src/smoke.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@igo/core": "*"
+  }
+}

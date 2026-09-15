@@ -1,6 +1,7 @@
-# igo-client
+# igo
 
-囲碁（Go）の対局クライアント。Expo (SDK 56) / React Native + TypeScript 製。
+囲碁（Go）の対局クライアントとサーバのモノレポです。Expo (SDK 56) /
+React Native + TypeScript 製。
 
 **Phase 1**: 9路盤・ローカル二人対局（パス＆プレイ）。ルール判定とスコア計算を完備。
 
@@ -19,6 +20,21 @@
 差し替え可能で、UI は具象実装を知らない。詳細は [SPEC.md](./SPEC.md) と
 [CLAUDE.md](./CLAUDE.md) を参照。
 
+## 構成
+
+npm workspaces のモノレポです。
+
+| パッケージ | 役割 |
+| --- | --- |
+| `packages/core` | `@igo/core`。ドメイン型・ルールエンジン・`IGameService`。RN/DOM 依存ゼロ |
+| `apps/client` | `igo-client`。Expo アプリ（UI のみ） |
+| `apps/server` | `@igo/server`。対戦成績サーバ。現状は疎通確認のみで HTTP・永続化は未実装 |
+
+クライアントとサーバを分けずに 1 リポジトリへ置いているのは、Phase 2 が
+「ルール判定はサーバー権威」を要求するためです。自殺手判定・同形反復・中国ルールの
+面積計算を両側で動かす必要があり、実装を 2 つ持つと「サーバでは合法、端末では非合法」
+という食い違いが避けられません。`packages/core` を共有することでこれを構造的に防いでいます。
+
 ## セットアップ
 
 ```bash
@@ -35,13 +51,21 @@ npm run android  # Android エミュレータ
 ## 開発
 
 ```bash
-npm run typecheck    # tsc --noEmit（strict）
-npm run test:engine  # ルールエンジンの検証スイート
+npm run typecheck     # tsc --noEmit（strict）。3 ワークスペースすべて
+npm run test:engine   # ルールエンジンの検証スイート
+npm run server:smoke  # @igo/core が素の Node で動くことの確認
 ```
 
 `npm run test:engine` はルールエンジン（取り・自殺手・コウ・スコア・
 `moves[]` 再構築）を Node 上で実走検証します。エンジンのロジックを変更したら
 実行してください。
+
+`npm run server:smoke` は `@igo/core` 経由で一局を進め、取り・手番違反の拒否・
+着手禁止点の拒否・両パス終局のスコアまでを Node 上で確認します。サーバ権威の
+ルール判定が成立していることの確認用です。
+
+実行は `tsx` 経由のため型検査を伴いません。型の担保は `npm run typecheck` が
+担当しますので、こちらも併せて実行してください。
 
 ## ライセンス
 

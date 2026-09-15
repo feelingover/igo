@@ -1,0 +1,20 @@
+{
+  // packages/core と同じく expo/tsconfig.base は継承しない。
+  // 継承すると customConditions: ["react-native"] が効いてサーバ側の解決が狂う。
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    // tsx（esbuild）で実行するので、解決規則はバンドラ相当に合わせる。
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*"]
+}

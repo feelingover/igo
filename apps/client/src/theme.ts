@@ -2,7 +2,7 @@
 //
 // 色はこのファイルでだけ定義する。コンポーネント側に生のカラーコードを
 // 書かないこと（同じ色に別の値が混ざるのを防ぐため）。
-import type { StoneColor } from './types';
+import type { StoneColor } from '@igo/core';
 
 export const colors = {
   // --- 盤 ---

@@ -3,7 +3,7 @@
 // 別々に実装していたのを共通化したもの。
 import { View } from 'react-native';
 import { colors, stoneFill } from '../theme';
-import type { StoneColor } from '../types';
+import type { StoneColor } from '@igo/core';
 
 type Props = {
   color: StoneColor;

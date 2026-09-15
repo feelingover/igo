@@ -1,0 +1,11 @@
+{
+  "name": "@igo/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "クライアントとサーバで共有するドメイン型・ルールエンジン・ゲームサービス契約。RN/DOM 依存ゼロ。",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

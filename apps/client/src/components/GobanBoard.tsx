@@ -3,7 +3,7 @@ import { View, type GestureResponderEvent } from 'react-native';
 import Svg, { Circle, Rect } from 'react-native-svg';
 import { useGameStore } from '../state/gameStore';
 import { colors } from '../theme';
-import type { Move, Point } from '../types';
+import type { Move, Point } from '@igo/core';
 import { BoardGrid } from './BoardGrid';
 import { Stone } from './Stone';
 import { TerritoryMarkers } from './TerritoryMarkers';
