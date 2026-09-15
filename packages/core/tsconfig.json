@@ -1,0 +1,23 @@
+{
+  // expo/tsconfig.base を「継承しない」ことが重要。
+  // あちらは customConditions: ["react-native"] と lib: ["DOM", ...] を持ち込むため、
+  // 継承するとサーバから使えないコードが型検査を通ってしまう。
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    // DOM を入れない＝ core に document/window が紛れ込んだら型エラーになる。
+    "lib": ["ES2022"],
+    // spike.test.ts が console を使うためだけの Node 型。
+    "types": ["node"],
+    // 拡張子なし import とディレクトリ index 解決を維持する（クライアント側と同じ挙動）。
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*"]
+}

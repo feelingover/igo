@@ -9,28 +9,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Expo (SDK 56) / React Native client for a Go (囲碁) game. `SPEC.md` is the
-authoritative design doc and is organized by chapter (referenced throughout the
-source as "SPEC N章"). Phase 1 — the current implementation — is a local
-two-player (pass-and-play) 9×9 game with full rule judgment and Chinese-rules
-area scoring. Phase 2 (remote/API play) is anticipated by the interfaces but not
-built.
+An Expo (SDK 56) / React Native client for a Go (囲碁) game, plus the beginnings
+of its server, in one **npm-workspaces monorepo**. `SPEC.md` is the authoritative
+design doc and is organized by chapter (referenced throughout the source as
+"SPEC N章"). Phase 1 — the current implementation — is a local two-player
+(pass-and-play) 9×9 game with full rule judgment and Chinese-rules area scoring.
+Phase 2 (remote/API play) is anticipated by the interfaces but not built.
+
+## Repository layout
+
+```
+packages/core/   @igo/core — domain types, rule engine, IGameService.
+                 Zero RN/DOM dependencies; runs unchanged in plain Node.
+apps/client/     igo-client — the Expo app (UI only).
+apps/server/     @igo/server — match-history server. Skeleton only so far:
+                 src/smoke.ts proves @igo/core works under Node. No HTTP, no DB.
+```
+
+The monorepo exists for one reason: SPEC Phase 2 requires **server-authoritative
+rule judgment** (`ルール判定はサーバー権威`), so suicide detection, positional
+superko and Chinese area scoring must run on both sides. Sharing one engine is
+the only way to guarantee client and server never disagree about legality.
+
+**Therefore `packages/core` must never depend on `react`, `react-native`, or any
+DOM API.** Its tsconfig deliberately omits the `DOM` lib so such a mistake fails
+typecheck. Anything UI-shaped belongs in `apps/client`.
 
 ## Commands
 
+All run from the repo root.
+
 ```bash
-npm run typecheck     # tsc --noEmit (strict). Run after any TS change.
+npm run typecheck     # tsc --noEmit (strict) across all 3 workspaces.
 npm run test:engine   # The rule-engine verification suite (see below).
+npm run server:smoke  # Prove @igo/core drives a full game under plain Node.
 npm run web           # Run in a browser — the practical way to preview (see note).
 npm start             # Expo dev server (QR / dev client)
 npm run ios|android   # Native simulators / devices
 ```
 
-There is no test framework. `npm run test:engine` compiles
-`src/engine/spike.test.ts` to CommonJS into `.spike-build/` and runs it in Node.
-It is a hand-rolled assertion harness that **throws on failure** (non-zero exit).
-It is the single source of automated verification — run it after any change to
-engine logic. There is no "run a single test"; edit/comment checks in that file.
+The client scripts delegate to the `igo-client` workspace and forward extra args,
+so `npm run web -- --port 8082` works.
+
+There is no test framework. `npm run test:engine` runs
+`packages/core/src/engine/spike.test.ts` through `tsx`. It is a hand-rolled
+assertion harness that **throws on failure** (non-zero exit). It is the single
+source of automated verification — run it after any change to engine logic.
+There is no "run a single test"; edit/comment checks in that file.
+
+`tsx` does not typecheck, so `npm run typecheck` is not optional — it is the only
+thing checking types in `packages/core` and `apps/server`.
 
 **Expo Go caveat:** the App Store Expo Go binary supports only ≤ SDK 55, so this
 SDK 56 app cannot run in Expo Go. Use `npm run web`, or build a dev client.
@@ -41,26 +69,31 @@ Strictly layered, with the two lower layers hidden behind interfaces so they can
 be swapped without touching anything above:
 
 ```
-components/  →  state/gameStore (zustand)  →  IGameService  →  IRuleEngine
-   (UI)            (UI + derived state)        (game lifecycle)   (pure rules)
+components/  →  state/gameStore (zustand)  │  IGameService  →  IRuleEngine
+   (UI)            (UI + derived state)    │  (game lifecycle)   (pure rules)
+└────────── apps/client ──────────────────┘└───────── @igo/core ──────────┘
 ```
 
 The UI layer never references a concrete service or engine — only the interfaces.
+The package boundary falls on the same seam: everything from `IGameService` down
+lives in `@igo/core` and is shared with the server.
 
 ### `moves[]` is the single source of truth
 The board is a **derived cache**, never authoritative. `GameState.currentBoard`
 and the engine's internal board are both reconstructed from `moves[]` via
-`replayMoves(engine, size, moves)` (src/engine/ruleEngine.ts). This is the
+`replayMoves(engine, size, moves)` (packages/core/src/engine/ruleEngine.ts). This is the
 mechanism behind the "board must be reconstructable from moves[]" requirement —
 preserve it. Don't mutate board state independently of `moves[]`.
 
-### Seam 1 — `IRuleEngine` (src/engine/types.ts)
+### Seam 1 — `IRuleEngine` (packages/core/src/engine/types.ts)
 Pure board rules, **zero RN/DOM dependencies** (so it runs in plain Node for the
 spike). Key contract: `EngineState = unknown` is **deliberately opaque** — never
 inspect or destructure it outside the engine; pass it back into engine methods.
-- Concrete impl: `SelfRuleEngine` (src/engine/selfRuleEngine.ts), chosen via the
-  Chapter-6 "engine spike". `createRuleEngine()` (ruleEngine.ts) is the **only**
-  place that names the concrete class — swap engines by editing only that factory.
+- Concrete impl: `SelfRuleEngine` (packages/core/src/engine/selfRuleEngine.ts),
+  chosen via the Chapter-6 "engine spike". `createRuleEngine()` (ruleEngine.ts) is
+  the **only** place that names the concrete class — swap engines by editing only
+  that factory. For the same reason `selfRuleEngine` is **not** re-exported from
+  the `@igo/core` barrel (packages/core/src/index.ts).
 - Rules implemented: suicide rejection; capture (flood-fill liberties); ko as
   **positional superko** (forbid recreating any prior board hash — checked on
   *every* move, not only capturing ones: a snapback lets a non-capturing move
@@ -76,7 +109,7 @@ inspect or destructure it outside the engine; pass it back into engine methods.
   (double-pass) to be computable. See the note in types.ts.
 - Coordinates: `Point {x,y}`, 0-indexed, top-left origin, `board[y][x]`.
 
-### Seam 2 — `IGameService` (src/services/gameService.ts)
+### Seam 2 — `IGameService` (packages/core/src/services/gameService.ts)
 Game lifecycle. **All methods are async/Promise** even in the in-memory impl, so
 a Phase 2 `remoteGameService` can drop in with no signature changes.
 - Concrete impl: `LocalGameService` (in-memory `Map<gameId, GameRecord>`),
@@ -89,10 +122,13 @@ a Phase 2 `remoteGameService` can drop in with no signature changes.
   — board, `nextToPlay`, `captures` — from `engineState` on each call, so there
   is no per-case bookkeeping to keep in sync and no hand-written deep clone.
 - `result` is a structured `GameResult` (`{kind:'score'|'resign', winner, …}`),
-  **not** a string. Format it at the boundary (`components/resultFormat.ts`);
-  never build a `"B+5.5"` string only to parse it back.
+  **not** a string. Format it at the boundary
+  (`apps/client/src/components/resultFormat.ts`); never build a `"B+5.5"` string
+  only to parse it back.
 
 ### State / UI
+All under `apps/client/src/`.
+
 - `state/gameStore.ts` (zustand) holds `GameState` plus UI-only derived state
   (preview point, error, busy). It keeps a separate `previewEngine` purely for
   **client-side pre-checks** of legality (`replayMoves` → `isLegalMove`); the
@@ -106,10 +142,23 @@ a Phase 2 `remoteGameService` can drop in with no signature changes.
 
 ## Conventions
 
-- Production source uses **extensionless imports** (Metro-friendly). The engine
-  spike is compiled to CommonJS separately because Node ESM can't resolve them —
-  that's why `test:engine` shells out to `tsc` rather than running the `.ts`
-  directly.
+- Production source uses **extensionless imports** (Metro-friendly). Node ESM
+  can't resolve those, which is why anything running under Node (`test:engine`,
+  `server:smoke`) goes through `tsx` — esbuild resolves them like a bundler. Do
+  not "fix" this by adding `.js` extensions; it would only move the problem.
+- **Never add an `exports` field to `packages/core/package.json`.** It switches
+  Metro and Node to exports semantics, which disables extension inference and
+  breaks every extensionless import inside the package. `main`/`types` is enough.
+- `apps/*` and `packages/*` tsconfigs do **not** share a base. `apps/client`
+  extends `expo/tsconfig.base`; core and server must not, because that base sets
+  `customConditions: ["react-native"]` and pulls in the `DOM` lib — both of which
+  would let client-only code pass typecheck in a server-shared package.
+- Workspace deps use `"@igo/core": "*"`, not `"workspace:*"` — npm 11 rejects the
+  `workspace:` protocol with `EUNSUPPORTEDPROTOCOL` (pnpm/yarn/bun accept it).
+- No `metro.config.js`, on purpose. SDK 56 auto-detects workspaces and sets
+  `watchFolders` / `nodeModulesPaths` / `unstable_serverRoot` itself; the
+  `watchFolders = [monorepoRoot]` snippets found online are for SDK ≤ 51 and
+  break current setups.
 - TypeScript is `strict`. Keep `npm run typecheck` clean.
 - Source comments reference `SPEC.md` chapters ("SPEC N章"); when adding logic,
   cite the relevant chapter the same way.

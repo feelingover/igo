@@ -3,7 +3,7 @@
 // 盤上の地マーカー（TerritoryMarkers）と色を対応させ、凡例で地の数を示す。
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
-import type { ScoreBreakdown, ScoreResult, StoneColor } from '../types';
+import type { ScoreBreakdown, ScoreResult, StoneColor } from '@igo/core';
 import { ColorDot } from './ColorDot';
 import { colorJa, formatPoints } from './resultFormat';
 

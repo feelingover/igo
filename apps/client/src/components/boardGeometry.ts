@@ -1,6 +1,6 @@
 // 碁盤の座標計算（SPEC 9章）
 // 交点(0-indexed) ⇄ ピクセル変換、星(hoshi)、座標ラベルを一元管理する。
-import type { Point } from '../types';
+import type { Point } from '@igo/core';
 
 export interface BoardGeometry {
   size: number; // 1辺の交点数（9）

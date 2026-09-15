@@ -64,31 +64,47 @@ Claude Code 向けの **Phase 1 実装指示書**。
 
 ## 4. ディレクトリ構成
 
+> **更新（Phase 2 準備）**: 当初は単一パッケージの `src/` 配下に全部を置く想定だった。
+> 現在は npm workspaces のモノレポへ再編済み。**論理構造（層と依存の向き）は Phase 1 から
+> 変えていない**。変わったのは配置だけで、「ルール判定はサーバー権威」（末尾の
+> 「Phase 2 以降」参照）を満たすために、サーバと共有する層を `packages/core` に切り出してある。
+
 ```
-src/
+packages/core/src/       # @igo/core — クライアントとサーバで共有。RN/DOM 依存ゼロ
+  types/
+    index.ts             # ドメイン型
+  engine/
+    types.ts             # IRuleEngine, EngineState
+    ruleEngine.ts        # ファクトリ（確定したアダプタを返す）
+    selfRuleEngine.ts    # ← スパイクの結果、自前実装を採用（6章）
+    spike.test.ts        # エンジン検証スイート
+  services/
+    gameService.ts       # IGameService
+    localGameService.ts  # Phase1 実装（メモリ内）
+  index.ts               # 公開バレル（selfRuleEngine は意図的に非公開）
+
+apps/client/src/         # igo-client — Expo アプリ（UI のみ）
   components/
-    GobanBoard.tsx      # SVG碁盤本体
-    Stone.tsx           # 石（円）
-    BoardGrid.tsx       # 線・星・座標ラベル
-    ControlBar.tsx      # パス/投了ボタン、手番表示、アゲハマ表示
+    GobanBoard.tsx       # SVG碁盤本体
+    Stone.tsx            # 石（円）
+    BoardGrid.tsx        # 線・星・座標ラベル
+    ControlBar.tsx       # パス/投了ボタン、手番表示、アゲハマ表示
+    ScorePanel.tsx       # 終局時の内訳表示
+    TerritoryMarkers.tsx # 地のマーカー
+    ColorDot.tsx / boardGeometry.ts / resultFormat.ts
   screens/
     GameScreen.tsx
   state/
-    gameStore.ts        # zustand store
-  engine/
-    types.ts            # IRuleEngine, EngineState
-    ruleEngine.ts       # ファクトリ（確定したアダプタを返す）
-    tenukiAdapter.ts    # ← スパイクで動けばこれ。ダメなら別ファイルに差し替え
-  services/
-    gameService.ts      # IGameService
-    localGameService.ts # Phase1 実装（メモリ内）
-  types/
-    index.ts            # ドメイン型
+    gameStore.ts         # zustand store
+  theme.ts
+
+apps/server/src/         # @igo/server — 対戦成績サーバ
+  smoke.ts               # 現状は @igo/core の疎通確認のみ（HTTP・永続化は未実装）
 ```
 
 ---
 
-## 5. ドメイン型定義（`src/types/index.ts`）
+## 5. ドメイン型定義（`packages/core/src/types/index.ts`）
 
 ```ts
 export type StoneColor = 'black' | 'white';
@@ -121,7 +137,7 @@ export interface GameState {
 
 ---
 
-## 6. ルールエンジン（`src/engine/`）
+## 6. ルールエンジン（`packages/core/src/engine/`）
 
 ### インターフェース（`types.ts`）
 
@@ -157,7 +173,7 @@ export type EngineState = unknown; // アダプタ内部型。外には漏らさ
 
 ---
 
-## 7. ゲームサービス（`src/services/`）
+## 7. ゲームサービス（`packages/core/src/services/`）
 
 ```ts
 export interface IGameService {
@@ -174,7 +190,7 @@ export interface IGameService {
 
 ---
 
-## 8. 状態管理（`src/state/gameStore.ts`）
+## 8. 状態管理（`apps/client/src/state/gameStore.ts`）
 
 zustand store。保持するのは `GameState` と派生 UI 状態（プレビュー着手など）。
 

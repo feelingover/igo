@@ -1,6 +1,6 @@
 // 結果・目数の日本語表記（SPEC 9章）
 // ControlBar / ScorePanel が共通で使う表示フォーマット。
-import type { GameResult, StoneColor } from '../types';
+import type { GameResult, StoneColor } from '@igo/core';
 
 export const colorJa = (c: StoneColor): string => (c === 'black' ? '黒' : '白');
 
