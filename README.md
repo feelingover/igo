@@ -28,7 +28,7 @@ npm workspaces のモノレポです。
 | --- | --- |
 | `packages/core` | `@igo/core`。ドメイン型・ルールエンジン・`IGameService`。RN/DOM 依存ゼロ |
 | `apps/client` | `igo-client`。Expo アプリ（UI のみ） |
-| `apps/server` | `@igo/server`。対戦成績サーバ。現状は疎通確認のみで HTTP・永続化は未実装 |
+| `apps/server` | `@igo/server`。Hono 製の REST サーバ。トークン認証のモックを実装済み。対戦成績の永続化は未実装 |
 
 クライアントとサーバを分けずに 1 リポジトリへ置いているのは、Phase 2 が
 「ルール判定はサーバー権威」を要求するためです。自殺手判定・同形反復・中国ルールの
@@ -53,7 +53,9 @@ npm run android  # Android エミュレータ
 ```bash
 npm run typecheck     # tsc --noEmit（strict）。3 ワークスペースすべて
 npm run test:engine   # ルールエンジンの検証スイート
+npm run test:auth     # トークン認証モックの検証スイート
 npm run server:smoke  # @igo/core が素の Node で動くことの確認
+npm run server:dev    # 認証モックサーバを起動（:8787、ファイル監視あり）
 ```
 
 `npm run test:engine` はルールエンジン（取り・自殺手・コウ・スコア・
@@ -64,8 +66,26 @@ npm run server:smoke  # @igo/core が素の Node で動くことの確認
 着手禁止点の拒否・両パス終局のスコアまでを Node 上で確認します。サーバ権威の
 ルール判定が成立していることの確認用です。
 
+`npm run test:auth` は後述の認証モックを HTTP 層ごと検証します。ローテーションの
+猶予期間、再利用検知、`token_version` による即時失効、鍵ローテーションの重複期間
+などを実走で確認しますので、`apps/server` に手を入れたら実行してください。
+
 実行は `tsx` 経由のため型検査を伴いません。型の担保は `npm run typecheck` が
 担当しますので、こちらも併せて実行してください。
+
+## トークン認証モック
+
+[mobile-game-token-auth-design.md](./mobile-game-token-auth-design.md) に書いた
+モバイルゲーム向けの3層トークン認証（アクセストークン / リフレッシュトークン /
+デバイス認証情報）を、`apps/server` に REST のモックとして実装しています。
+
+```bash
+npm run server:dev   # http://localhost:8787
+```
+
+インメモリ実装のため、プロセスを再起動すると署名鍵を含む全状態が消えます。
+エンドポイント・リクエスト例・実装範囲は
+[apps/server/README.md](./apps/server/README.md) を参照してください。
 
 ## ライセンス
 

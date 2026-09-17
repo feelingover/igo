@@ -16,7 +16,10 @@
     "web": "npm run web --workspace igo-client --",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test:engine": "tsx packages/core/src/engine/spike.test.ts",
-    "server:smoke": "npm run smoke --workspace @igo/server --"
+    "test:auth": "tsx apps/server/src/auth/authMock.test.ts",
+    "server:smoke": "npm run smoke --workspace @igo/server --",
+    "server:start": "npm run start --workspace @igo/server --",
+    "server:dev": "npm run dev --workspace @igo/server --"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

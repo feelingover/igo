@@ -22,8 +22,10 @@ Phase 2 (remote/API play) is anticipated by the interfaces but not built.
 packages/core/   @igo/core — domain types, rule engine, IGameService.
                  Zero RN/DOM dependencies; runs unchanged in plain Node.
 apps/client/     igo-client — the Expo app (UI only).
-apps/server/     @igo/server — match-history server. Skeleton only so far:
-                 src/smoke.ts proves @igo/core works under Node. No HTTP, no DB.
+apps/server/     @igo/server — Hono REST server. Its only working feature is the
+                 token-auth mock (src/auth, src/http) built from
+                 mobile-game-token-auth-design.md. Match history is still unbuilt:
+                 no DB, and src/smoke.ts only proves @igo/core runs under Node.
 ```
 
 The monorepo exists for one reason: SPEC Phase 2 requires **server-authoritative
@@ -42,7 +44,9 @@ All run from the repo root.
 ```bash
 npm run typecheck     # tsc --noEmit (strict) across all 3 workspaces.
 npm run test:engine   # The rule-engine verification suite (see below).
+npm run test:auth     # The token-auth verification suite (see below).
 npm run server:smoke  # Prove @igo/core drives a full game under plain Node.
+npm run server:dev    # Auth mock server on :8787, tsx watch. server:start for once.
 npm run web           # Run in a browser — the practical way to preview (see note).
 npm start             # Expo dev server (QR / dev client)
 npm run ios|android   # Native simulators / devices
@@ -51,11 +55,17 @@ npm run ios|android   # Native simulators / devices
 The client scripts delegate to the `igo-client` workspace and forward extra args,
 so `npm run web -- --port 8082` works.
 
-There is no test framework. `npm run test:engine` runs
-`packages/core/src/engine/spike.test.ts` through `tsx`. It is a hand-rolled
-assertion harness that **throws on failure** (non-zero exit). It is the single
-source of automated verification — run it after any change to engine logic.
-There is no "run a single test"; edit/comment checks in that file.
+There is no test framework. Both suites are hand-rolled assertion harnesses run
+through `tsx` that **throw on failure** (non-zero exit), and they are the only
+automated verification in the repo:
+
+- `npm run test:engine` → `packages/core/src/engine/spike.test.ts`. Run after any
+  change to engine logic.
+- `npm run test:auth` → `apps/server/src/auth/authMock.test.ts`. Run after any
+  change under `apps/server/src`. It drives the HTTP layer through Hono's
+  `app.request()`, so it binds no port.
+
+There is no "run a single test"; edit/comment checks in those files.
 
 `tsx` does not typecheck, so `npm run typecheck` is not optional — it is the only
 thing checking types in `packages/core` and `apps/server`.
@@ -139,6 +149,40 @@ All under `apps/client/src/`.
   handling via `nearestIntersection`), `BoardGrid`, `Stone`, `ControlBar`;
   geometry math is isolated in `boardGeometry.ts`. `screens/GameScreen.tsx`
   fixes `BOARD_SIZE = 9` (engine itself is size-agnostic).
+
+## Token auth mock (apps/server)
+
+`mobile-game-token-auth-design.md` (repo root) is the authoritative design doc for
+this part, the way `SPEC.md` is for the game. Source comments cite it as
+"DESIGN N章". `apps/server/README.md` documents the endpoints.
+
+```
+http/        Hono routes, middleware, wire-format mapping. camelCase inside,
+             snake_case on the wire — convert only in http/present.ts.
+auth/        The domain. Knows nothing about HTTP.
+```
+
+Invariants that are load-bearing — breaking one silently reintroduces a
+vulnerability the design exists to close:
+
+- **A family is only ever revoked after a hash match** (`authService.rotateUnderLock`).
+  `family_id` is readable from any observed access token's `fid` claim and
+  `generation` is a small integer, so revoking without verifying the secret lets a
+  third party force-logout arbitrary users. Every other refresh failure is
+  "reject only, don't touch the family".
+- **Raw refresh tokens live only in the grace-period cache** (`cache.ts`, TTL =
+  grace period). `store.ts` holds `secret_hash` alone, so a DB leak yields no
+  usable token. Keep the two stores separate; don't "simplify" by merging them.
+- **`alg` is never read when verifying.** `kid` → `{alg, key}` via
+  `SigningKeyRegistry`, then verify. Reversing that order reopens `alg: none`.
+- **401 means "your credentials are dead"** — clients drop them on it (DESIGN 6章).
+  Server-side trouble (lock contention, cache outage, rate limit) must be 503/429
+  with `Retry-After`, never 401.
+- **`verifyAccessToken` deliberately does not check family/device revocation.**
+  Those are designed to lag by the access-token lifetime; checking them per request
+  would put the state read back into every request that the design removes.
+- Domain code takes an injected `Clock`; don't call `Date.now()` there. `lock.ts` is
+  the exception and says why.
 
 ## Conventions
 

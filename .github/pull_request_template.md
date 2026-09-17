@@ -18,6 +18,7 @@
 
 - [ ] `npm run typecheck` がクリーン（3 ワークスペースすべて）
 - [ ] `npm run test:engine` が全件パス（エンジンのロジックを変えた場合は検証を追加）
+- [ ] `npm run test:auth` が全件パス（`apps/server` を変えた場合は検証を追加）
 - [ ] `npm run server:smoke` がパス（`packages/core` を変えた場合）
 - [ ] `npm run web` で実機の挙動を確認（UI を変えた場合はスクリーンショットを添付）
 
