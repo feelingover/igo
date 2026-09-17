@@ -2,12 +2,17 @@
   "name": "@igo/server",
   "version": "0.0.0",
   "private": true,
-  "description": "対戦成績サーバ。現時点では @igo/core の疎通確認のみ（HTTP・永続化は未実装）。",
+  "description": "サーバ。mobile-game-token-auth-design.md のトークン認証を REST モックとして実装。対戦成績の永続化は未実装。",
   "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts",
     "smoke": "tsx src/smoke.ts",
+    "test:auth": "tsx src/auth/authMock.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@igo/core": "*"
+    "@hono/node-server": "^2.1.1",
+    "@igo/core": "*",
+    "hono": "^4.13.8"
   }
 }
